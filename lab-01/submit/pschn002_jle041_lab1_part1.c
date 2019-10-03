@@ -234,8 +234,8 @@ int main(void)
 {
 	DDRB = 0xFF; // Set port B to output
 	PORTB = 0xFF; // Init port B to 0s
-	DDRA = 0xF0;
-	PORTA = 0x0F;
+	DDRA = 0x00;
+	PORTA = 0xFF;
 
 	TimerSet(500); //TODO GCD
 	TimerOn();
