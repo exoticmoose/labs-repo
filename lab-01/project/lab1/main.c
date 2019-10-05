@@ -27,7 +27,7 @@ enum SMState_Display {
 unsigned long tasksPeriod_Blink = 500;
 unsigned long tasksPeriod_Sequence = 1000;
 unsigned long tasksPeriod_Control = 50;
-unsigned long tasksPeriod_Display = 250;
+unsigned long tasksPeriod_Display = 50;
 // TODO Add GCD calculation
 // tmp_gcd = ...
 unsigned long tasksPeriodGCD = 50; // Start count from here, down to 0. Default 1ms
@@ -43,6 +43,7 @@ unsigned char playerScore = 0;
 
 unsigned char PB_blink_out = 0x00;
 unsigned char PB_sequence_out = 0x00;
+unsigned char tmp_state = 0x00;
 
 
 
@@ -130,24 +131,28 @@ int SMTick_Blink(int state) {
 
 
 int SMTick_Control(int state) {
-	
+	//tmp_state = state;
 	switch (state) {
 		case CONTROL_INIT:
 			state = CONTROL_IDLE;
 			break;
 		
 		case CONTROL_IDLE:
-			if (PINA & 0x01) {
+			if (~PINA & 0x01) {
 				 buttonProcessed = 0;
 				 state = CONTROL_PRESSED;
+				 //PORTB = 0x05; // remove
 			}
 			else state = CONTROL_IDLE;
 			break;
 		
 		case CONTROL_PRESSED:
-			state = (PINA & 0x01) ? CONTROL_PRESSED : CONTROL_IDLE;
+			state = (~PINA & 0x01) ? CONTROL_PRESSED : CONTROL_IDLE;
+			//PORTB = 0x06; //remove
 			break;
 		
+		case CONTROL_PAUSED:
+			state = (~PINA & 0x01) ? CONTROL_PRESSED : CONTROL_PAUSED;
 		default:
 			state = CONTROL_DEFAULT;
 			break;
@@ -174,20 +179,27 @@ int SMTick_Control(int state) {
 					if (tasks[0].state == SEQUENCE_LED1) {
 						// Hit success, increment score
 						playerScore++;
+						
 					}
 					else {
 						// Miss, decrement down to zero
 						playerScore = playerScore ? playerScore - 1 : 0;
 					}
+					sysPause = 1;
 				}
+				buttonProcessed = 1;
 			}
+			break;
+		
+		case CONTROL_PAUSED:
+			
 			break;
 
 		default:
 			playerScore = 69;
 			break;
 	}
-	
+	tmp_state = playerScore;
 	return state;
 }
 
@@ -214,12 +226,13 @@ int SMTick_Display(int state) {
 			PB_out = PB_blink_out | PB_sequence_out;
 			//if (PB_out != PB_out_last) {
 				PORTB = PB_out;
+				PORTA = tmp_state << 4;
 			//}
 			// TODO LCD output
 			break;
 		
 		default:
-			PORTB = 0xFF;
+			PORTB = 0x05;
 			break;
 	}
 	
@@ -235,19 +248,19 @@ int main(void)
 	DDRB = 0xFF; // Set port B to output
 	PORTB = 0xFF; // Init port B to 0s
 	DDRA = 0xF0;
-	PORTA = 0x0F;
+	PORTA = 0xFF;
 
-	TimerSet(500); //TODO GCD
+	TimerSet(25); //TODO GCD
 	TimerOn();
 
 	tasks[0].TickFct = &SMTick_Sequence;
 	tasks[0].state = 0;
-	tasks[0].period = 10;
+	tasks[0].period = 200;
 	tasks[0].elapsedTime = 0;
 
 	tasks[1].TickFct = &SMTick_Blink;
 	tasks[1].state = 0;
-	tasks[1].period = 20;
+	tasks[1].period = 400;
 	tasks[1].elapsedTime = 0;
 
 	tasks[2].TickFct = &SMTick_Control;
